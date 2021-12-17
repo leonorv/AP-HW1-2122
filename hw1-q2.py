@@ -8,17 +8,10 @@ import utils
 def relu(Z):
     return np.maximum(0,Z)
 
-def relu_backward(dA, Z):
+def drelu(dA, Z):
     dZ = np.array(dA, copy = True)
     dZ[Z <= 0] = 0;
     return dZ;
-
-# for loss we will be using mean square error(MSE)
-def loss(out, Y):
-    s =(np.square(out-Y))
-    s = np.sum(s)/len(Y)
-    return(s)
-
 
 def distance(analytic_solution, model_params):
     return np.linalg.norm(analytic_solution - model_params)
@@ -82,7 +75,10 @@ class LinearRegression(_RegressionModel):
         This function makes an update to the model weights (in other words,
         self.w).
         """
-        self.w = self.w - learning_rate*(2*(self.w.dot(x_i) - y_i)*(x_i))
+        m = x_i.shape[0]
+        y_hat = self.predict(x_i)
+        W_grad = 2 * np.dot(x_i.T, y_hat - y_i) / m
+        self.w = self.w - learning_rate * W_grad
         #raise NotImplementedError
 
     def predict(self, X):
@@ -99,8 +95,8 @@ class NeuralRegression(_RegressionModel):
         regression model (for example, there will probably be one weight
         matrix per layer of the model).
         """
-        self.b1 = np.zeros((hidden))
-        self.b2 = np.zeros((1))
+        self.b1 = np.zeros(hidden)
+        self.b2 = np.zeros(1)
         self.w1 = np.random.normal(0.1, 0.1**2, size=(hidden, n_features))
         self.w2 = np.random.normal(0.1, 0.1**2, size=(1, hidden))
 
@@ -128,7 +124,7 @@ class NeuralRegression(_RegressionModel):
         # Gradient of hidden layer below.
         grad_h1 = self.w2.T.dot(grad_z2)
 
-        grad_z1 = grad_h1 * relu(h1)   # Grad of loss wrt z3.
+        grad_z1 = grad_h1 * drelu(grad_h1, z1)   # Grad of loss wrt z3.
 
         grad_W1 = grad_z1[:, None].dot(h0[:, None].T)
         grad_b1 = grad_z1
