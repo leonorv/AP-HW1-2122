@@ -5,6 +5,20 @@ import matplotlib.pyplot as plt
 
 import utils
 
+def relu(Z):
+    return np.maximum(0,Z)
+
+def relu_backward(dA, Z):
+    dZ = np.array(dA, copy = True)
+    dZ[Z <= 0] = 0;
+    return dZ;
+
+# for loss we will be using mean square error(MSE)
+def loss(out, Y):
+    s =(np.square(out-Y))
+    s = np.sum(s)/len(Y)
+    return(s)
+
 
 def distance(analytic_solution, model_params):
     return np.linalg.norm(analytic_solution - model_params)
@@ -19,7 +33,14 @@ def solve_analytically(X, y):
     This function should return a vector of size n_features (the same size as
     the weight vector in the LinearRegression class).
     """
-    raise NotImplementedError
+    # Add column with ones to handle the bias coefficient.
+    #X = np.concatenate([np.ones((np.size(X, 0), 1)), X], axis=1)
+    #print(X)
+    num_columns = np.shape(X)[1]
+    # Compute weights.
+    w = np.linalg.inv(X.transpose().dot(X) + np.identity(num_columns)*0.0001).dot(X.transpose()).dot(y)
+    return w
+    #raise NotImplementedError
 
 
 class _RegressionModel:
@@ -61,7 +82,8 @@ class LinearRegression(_RegressionModel):
         This function makes an update to the model weights (in other words,
         self.w).
         """
-        raise NotImplementedError
+        self.w = self.w - learning_rate*(2*(self.w.dot(x_i) - y_i)*(x_i))
+        #raise NotImplementedError
 
     def predict(self, X):
         return np.dot(X, self.w)
@@ -77,7 +99,12 @@ class NeuralRegression(_RegressionModel):
         regression model (for example, there will probably be one weight
         matrix per layer of the model).
         """
-        raise NotImplementedError
+        self.b1 = np.zeros((hidden))
+        self.b2 = np.zeros((1))
+        self.w1 = np.random.normal(0.1, 0.1**2, size=(hidden, n_features))
+        self.w2 = np.random.normal(0.1, 0.1**2, size=(1, hidden))
+
+        #raise NotImplementedError
 
     def update_weight(self, x_i, y_i, learning_rate=0.001):
         """
@@ -85,7 +112,34 @@ class NeuralRegression(_RegressionModel):
 
         This function makes an update to the model weights
         """
-        raise NotImplementedError
+        h0 = x_i
+        z1 = self.w1.dot(h0) + self.b1
+
+        h1 = relu(z1)
+        z2 = self.w2.dot(h1) + self.b2
+
+        # Backward pass.
+        grad_z2 = z2 - y_i  # Grad of loss wrt z3.
+
+        # Gradient of hidden parameters.
+        grad_W2 = grad_z2[:, None].dot(h1[:, None].T)
+        grad_b2 = grad_z2
+
+        # Gradient of hidden layer below.
+        grad_h1 = self.w2.T.dot(grad_z2)
+
+        grad_z1 = grad_h1 * relu(h1)   # Grad of loss wrt z3.
+
+        grad_W1 = grad_z1[:, None].dot(h0[:, None].T)
+        grad_b1 = grad_z1
+
+
+        self.w1 -= learning_rate*grad_W1
+        self.w2 -= learning_rate*grad_W2
+        self.b1 -= learning_rate*grad_b1
+        self.b2 -= learning_rate*grad_b2
+
+        #raise NotImplementedError
 
     def predict(self, X):
         """
@@ -99,7 +153,23 @@ class NeuralRegression(_RegressionModel):
         update_weight because it returns only the final output of the network,
         not any of the intermediate values needed to do backpropagation.
         """
-        raise NotImplementedError
+        # Forward pass.
+        yhat = []
+        for x_i in X:
+            h0 = x_i
+
+            z1 = self.w1.dot(h0) + self.b1
+            h1 = relu(z1)
+
+            z2 = self.w2.dot(h1) + self.b2
+
+            yhat.append(z2[0])
+
+        return yhat
+        
+
+        
+        #raise NotImplementedError
 
 
 def plot(epochs, train_loss, test_loss):
