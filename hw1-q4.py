@@ -4,12 +4,20 @@
 
 import argparse
 
+from numba import jit
+
 import torch
 from torch.utils.data import DataLoader
 import torch.nn as nn
 from matplotlib import pyplot as plt
 
 import utils
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+# Assuming that we are on a CUDA machine, this should print a CUDA device:
+print(torch.cuda.get_device_name(0))
+print(device)
 
 
 # Q3.1
@@ -26,9 +34,11 @@ class LogisticRegression(nn.Module):
         pytorch to make weights and biases, have a look at
         https://pytorch.org/docs/stable/nn.html
         """
-        super().__init__()
+        #super().__init__()
+        super(LogisticRegression, self).__init__()
         # In a pytorch module, the declarations of layers needs to come after
         # the super __init__ line, otherwise the magic doesn't work.
+        self.linear = torch.nn.Linear(n_features, n_classes)
 
     def forward(self, x, **kwargs):
         """
@@ -44,7 +54,8 @@ class LogisticRegression(nn.Module):
         forward pass -- this is enough for it to figure out how to do the
         backward pass.
         """
-        raise NotImplementedError
+        outputs = self.linear(x)
+        return outputs
 
 
 # Q3.2
@@ -64,8 +75,33 @@ class FeedforwardNetwork(nn.Module):
         attributes that each FeedforwardNetwork instance has. Note that nn
         includes modules for several activation functions and dropout as well.
         """
-        super().__init__()
+        #super().__init__()
         # Implement me!
+
+        super(FeedforwardNetwork, self).__init__()
+        self.num_layers = layers
+        # Linear function
+        self.layer1 = nn.Linear(n_features, hidden_size) 
+
+        if layers == 2:
+            self.layer2 = nn.Linear(hidden_size, hidden_size) 
+            self.layer3 = nn.Linear(hidden_size, n_classes) 
+        elif layers == 3:
+            self.layer2 = nn.Linear(hidden_size, hidden_size) 
+            self.layer3 = nn.Linear(hidden_size, hidden_size) 
+            self.layer4 = nn.Linear(hidden_size, n_classes) 
+        else:
+            # one hidden layer only
+            self.layer2 = nn.Linear(hidden_size, n_classes) 
+
+        # Define proportion or neurons to dropout
+        self.dropout = nn.Dropout(dropout)
+
+        if activation_type == "relu":
+            self.activation = torch.nn.ReLU()
+        else:
+            self.activation = torch.tanh()
+
 
     def forward(self, x, **kwargs):
         """
@@ -75,7 +111,31 @@ class FeedforwardNetwork(nn.Module):
         the output logits from x. This will include using various hidden
         layers, pointwise nonlinear functions, and dropout.
         """
-        raise NotImplementedError
+        hidden1 = self.layer1(x)
+        hidden1 = self.dropout(hidden1)
+        activation = self.activation(hidden1)
+
+        if self.num_layers == 2:
+            hidden2 = self.layer2(activation)
+            hidden2 = self.dropout(hidden2)
+            activation2 = self.activation(hidden2)
+            output = self.layer3(activation2)
+            return output
+        
+        elif self.num_layers == 3:
+            hidden2 = self.layer2(activation)
+            hidden2 = self.dropout(hidden2)
+            activation2 = self.activation(hidden2)
+
+            hidden3 = self.layer3(activation2)
+            hidden3 = self.dropout(hidden3)
+            activation3 = self.activation(hidden3)
+            output = self.layer4(activation3)
+            return output
+
+        else:
+            output = self.layer2(activation)
+            return output
 
 
 def train_batch(X, y, model, optimizer, criterion, **kwargs):
@@ -96,7 +156,13 @@ def train_batch(X, y, model, optimizer, criterion, **kwargs):
     This function should return the loss (tip: call loss.item()) to get the
     loss as a numerical value that is not part of the computation graph.
     """
-    raise NotImplementedError
+
+    optimizer.zero_grad()
+    outputs = model(X)
+    loss = criterion(outputs, y)
+    loss.backward()
+    optimizer.step()
+    return loss.item()
 
 
 def predict(model, X):
@@ -155,11 +221,13 @@ def main():
     train_dataloader = DataLoader(
         dataset, batch_size=opt.batch_size, shuffle=True)
 
+
     dev_X, dev_y = dataset.dev_X, dataset.dev_y
     test_X, test_y = dataset.test_X, dataset.test_y
 
     n_classes = torch.unique(dataset.y).shape[0]  # 10
     n_feats = dataset.X.shape[1]
+
 
     # initialize the model
     if opt.model == 'logistic_regression':
@@ -169,6 +237,8 @@ def main():
             n_classes, n_feats,
             opt.hidden_sizes, opt.layers,
             opt.activation, opt.dropout)
+
+    #model = model.to(device)
 
     # get an optimizer
     optims = {"adam": torch.optim.Adam, "sgd": torch.optim.SGD}
@@ -180,7 +250,7 @@ def main():
         weight_decay=opt.l2_decay)
 
     # get a loss criterion
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss().cuda()
 
     # training loop
     epochs = torch.arange(1, opt.epochs + 1)
@@ -190,21 +260,26 @@ def main():
     for ii in epochs:
         print('Training epoch {}'.format(ii))
         for X_batch, y_batch in train_dataloader:
+            #X_batch, y_batch = X_batch.to(device), y_batch.to(device)
             loss = train_batch(
                 X_batch, y_batch, model, optimizer, criterion)
             train_losses.append(loss)
 
-        mean_loss = torch.tensor(train_losses).mean().item()
+        mean_loss = torch.tensor(train_losses).cuda().mean().item()
         print('Training loss: %.4f' % (mean_loss))
 
         train_mean_losses.append(mean_loss)
         valid_accs.append(evaluate(model, dev_X, dev_y))
         print('Valid acc: %.4f' % (valid_accs[-1]))
 
+
+    #test_X = test_X.to(device)
+    #test_y = test_X.to(device)
     print('Final Test acc: %.4f' % (evaluate(model, test_X, test_y)))
     # plot
     plot(epochs, train_mean_losses, ylabel='Loss', name='training-loss')
     plot(epochs, valid_accs, ylabel='Accuracy', name='validation-accuracy')
+
 
 
 if __name__ == '__main__':

@@ -12,6 +12,7 @@ def drelu(dA, Z):
     dZ = np.array(dA, copy = True)
     dZ[Z <= 0] = 0;
     return dZ;
+    
 
 def distance(analytic_solution, model_params):
     return np.linalg.norm(analytic_solution - model_params)
