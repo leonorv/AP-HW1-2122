@@ -100,7 +100,7 @@ class FeedforwardNetwork(nn.Module):
         if activation_type == "relu":
             self.activation = torch.nn.ReLU()
         else:
-            self.activation = torch.tanh()
+            self.activation = torch.nn.Tanh()
 
 
     def forward(self, x, **kwargs):

@@ -17,8 +17,8 @@ import torch
 def relu(Z):
     return np.maximum(0,Z)
 
-def drelu(z):
-    return (z > 0).astype(int)
+def drelu(Z):
+    return (Z > 0).astype(int)
 
 def softmax(vector):
     vector -= vector.max()
@@ -67,7 +67,6 @@ class Perceptron(LinearModel):
         y_i (scalar): the gold label for that example
         other arguments are ignored
         """
-        # Sign function.
         y_hat = np.argmax(self.W.dot(x_i))
         if y_hat != y_i:
             # Perceptron update.
@@ -241,7 +240,9 @@ def main():
             learning_rate=opt.learning_rate
         )
         valid_accs.append(model.evaluate(dev_X, dev_y))
+        print('Valid acc: %.4f' % (valid_accs[-1]))
         test_accs.append(model.evaluate(test_X, test_y))
+        print('Test acc: %.4f' % (test_accs[-1]))
 
     # plot
     plot(epochs, valid_accs, test_accs)
